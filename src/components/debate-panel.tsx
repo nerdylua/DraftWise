@@ -129,7 +129,10 @@ export function DebatePanel({ prd, agents, active = true }: Props) {
     };
 
     run();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      startedRef.current = false;
+    };
   }, [agents, prd, active]);
 
   const synthesizeFinalPRD = async () => {
@@ -221,14 +224,14 @@ export function DebatePanel({ prd, agents, active = true }: Props) {
           </div>
         </ScrollArea>
 
-        {!loading && !finalPRD && (
+        {!loading && !finalPRD && debate.length > 0 && (
           <div className="flex flex-col items-center w-full">
-            <Button 
-              onClick={synthesizeFinalPRD} 
+            <Button
+              onClick={synthesizeFinalPRD}
               className="w-full cursor-pointer hover:opacity-80 transition-opacity"
               variant="default"
               size="lg"
-              disabled={generatingFinal}
+              disabled={generatingFinal || debate.length === 0}
             >
               {generatingFinal ? "Generating Final PRD..." : "Synthesize Final PRD"}
             </Button>
@@ -238,6 +241,12 @@ export function DebatePanel({ prd, agents, active = true }: Props) {
                 <span>Working on synthesis…</span>
               </div>
             )}
+          </div>
+        )}
+
+        {!loading && !finalPRD && debate.length === 0 && (
+          <div className="text-sm text-muted-foreground italic">
+            No debate content was generated. This may be due to rate limiting or a streaming error.
           </div>
         )}
 
