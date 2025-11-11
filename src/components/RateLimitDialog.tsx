@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect } from 'react';
-import { Dialog } from "@/components/ui/dialog"; // keep Dialog import minimal; we override styling
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 
