@@ -27,8 +27,7 @@ DraftWise
 ├── pages/api/
 │   ├── debate.ts                  # Streams agent responses (debate flow)
 │   ├── download-pdf.ts            # Generate downloadable PRD PDF
-│   ├── generate-deployment-plan.ts
-│   ├── save-prd.ts
+│   ├── save-prd.ts                # Saves PRD
 │   ├── select-agents.ts           # Auto-selects agents based on PRD content
 │   └── synthesize-prd.ts          # Final synthesis of agent inputs
 ├── public/avatars/                # Agent profile images
@@ -42,42 +41,60 @@ DraftWise
 │   └── lib/                       # Core logic and helpers
 │       ├── agents.ts              # Agent metadata and behavior logic
 │       ├── api.ts                 # API functions
+│       ├── gates.ts               # Concurrency + timeout guards
+│       ├── security.ts            # In-memory rate limiter
 │       └── utils.ts               # Utility functions
 ```
 ## Powered By
 
-- **React 18 + Next.js** – Fast, modern web framework.
-- **shadcn/ui** – Beautiful UI components using Radix and Tailwind.
-- **Tailwind CSS** – Utility-first styling.
-- **TypeScript** – Strong typing for safer code.
-- **Server-Sent Events (SSE)** – Real-time streaming of agent debates.
-- **Gemini AI (or alternative LLMs)** – Role-based agent responses and synthesis logic.
-
----
+- React + Next.js – Fast, modern web framework.
+- shadcn/ui – Beautiful UI components using Radix and Tailwind.
+- Tailwind CSS – Utility-first styling.
+- TypeScript – Strong typing for safer code.
+- Server-Sent Events (SSE) – Real-time streaming of agent debates.
+- Gemini (via Vercel AI SDK + Google provider) – Role-based agent responses and synthesis logic.
 
 ## Setup Instructions
 
 ### 1. Clone the Repository
 
-```bash
+```powershell
 git clone https://github.com/nerdylua/DraftWise.git
 cd DraftWise
 ```
+
 ### 2. Install Dependencies
-```bash
+
+```powershell
 npm install
 ```
+
 ### 3. Environment Variable
-To run this project, you will need to add the following environment variable to your `.env` file:
+
+Create `.env.local` and add:
+
 ```env
-GEMINI_API_KEY=your_api_key_here
+GOOGLE_GENERATIVE_AI_API_KEY=your_api_key_here
 ```
+
 Replace `your_api_key_here` with your actual Gemini API key.
+
 ### 4. Run the Development Server
-```bash
+
+```powershell
 npm run dev
 ```
+
 Then open your browser and visit http://localhost:3000
+
+### 5. Build and start (production)
+
+```powershell
+npm run build
+npm start
+```
+
+By default the server runs on http://localhost:3000
 
 ## Features
 1. Draft PRD parsing and context extraction

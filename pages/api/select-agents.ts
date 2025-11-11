@@ -1,13 +1,20 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { GoogleGenerativeAI } from "@google/generative-ai";
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+import { rateLimit } from "@/lib/security";
+import { MAX_PRD_CHARS, withConcurrency, withTimeout } from "@/lib/gates";
+import { generateText } from "ai";
+import { google } from "@ai-sdk/google";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  if (!rateLimit(req, res, { windowMs: 60_000, max: 10 })) return;
+
   const { prd } = req.body;
 
   if (!prd || typeof prd !== "string") {
     return res.status(400).json({ error: "PRD text is required" });
+  }
+  if (prd.length > MAX_PRD_CHARS) {
+    return res.status(413).json({ error: "PRD too large" });
   }
 
   const prompt = `
@@ -22,26 +29,26 @@ Respond ONLY with valid JSON. Example:
 `;
 
   try {
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-2.0-flash-thinking-exp",  
-      generationConfig: {
-        temperature: 0.4
-      }
-    });
-    
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
+    const geminiModel: any = google('gemini-2.0-flash-lite');
+    // @ts-ignore suppress model type mismatch due to mixed internal versions
+    const { text } = await withConcurrency('llm-role', 3, () => withTimeout(
+      generateText({ model: geminiModel, prompt, temperature: 0.2 }),
+      20000
+    ));
 
     const cleanText = text.replace(/```json|```/g, "").trim();
     const parsed = JSON.parse(cleanText);
 
     res.status(200).json({ agents: parsed });
-  } catch (error) {
-    console.error("Gemini API error:", error);
-    res.status(500).json({ 
-      error: "Failed to fetch agents",
-      details: error instanceof Error ? error.message : String(error)
-    });
+  } catch {
+    res.status(500).json({ error: "Failed to fetch agents" });
   }
 }
+
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '200kb',
+    },
+  },
+};

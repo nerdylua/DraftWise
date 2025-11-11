@@ -15,7 +15,8 @@ import { useTheme } from "next-themes";
 export default function HomePage() {
   const [agents, setAgents] = useState<AgentName[]>([]);
   const [prd, setPrd] = useState("");
-  const { theme, setTheme } = useTheme();
+  const [debateStarted, setDebateStarted] = useState(false);
+  const { setTheme } = useTheme();
 
   return (
     <div className="fixed inset-0 overflow-auto bg-gradient-to-b from-background to-muted">
@@ -73,7 +74,7 @@ export default function HomePage() {
                 </CardContent>
               </Card>
 
-              {agents.length > 0 && (
+              {agents.length > 0 && !debateStarted && (
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-lg">Selected Experts</CardTitle>
@@ -82,12 +83,34 @@ export default function HomePage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <AgentList agents={agents} />
+                    <AgentList
+                      agents={agents}
+                      onRemove={(agent) => {
+                        setAgents((prev) => prev.filter((a) => a !== agent));
+                      }}
+                    />
+                    {agents.length > 0 && (
+                      <div className="mt-4 flex justify-end">
+                        <Button
+                          size="lg"
+                          onClick={() => setDebateStarted(true)}
+                          disabled={!prd || agents.length < 2}
+                          title={agents.length < 2 ? 'Select at least 2 agents to start a debate' : undefined}
+                        >
+                          Start Debate
+                        </Button>
+                      </div>
+                    )}
+                    {agents.length > 0 && agents.length < 2 && (
+                      <p className="mt-2 text-sm text-muted-foreground text-right">
+                        You need at least 2 agents to have a debate.
+                      </p>
+                    )}
                   </CardContent>
                 </Card>
               )}
 
-              {agents.length > 0 && prd && (
+              {debateStarted && agents.length > 0 && prd && (
                 <>
                   <Separator className="my-4" />
                   <Card>
@@ -98,7 +121,7 @@ export default function HomePage() {
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <DebatePanel prd={prd} agents={agents} />
+                      <DebatePanel prd={prd} agents={agents} active={debateStarted} />
                     </CardContent>
                   </Card>
                 </>

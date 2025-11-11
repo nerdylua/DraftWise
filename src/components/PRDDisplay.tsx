@@ -12,26 +12,21 @@ import {
   Check,
   X 
 } from "lucide-react";
+import { RateLimitDialog } from "@/components/RateLimitDialog";
 
 interface PRDDisplayProps {
   prdContent: string;
-  onAccept?: (content: string) => void;
   onSave?: (content: string) => void;
 }
 
-export function PRDDisplay({ prdContent, onAccept, onSave }: PRDDisplayProps) {
+export function PRDDisplay({ prdContent, onSave }: PRDDisplayProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(prdContent);
-  const [deploymentPlan, setDeploymentPlan] = useState<string>('');
-  const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
+  const [rateLimited, setRateLimited] = useState(false);
 
   const handleSave = () => {
     setIsEditing(false);
     onSave?.(editedContent);
-  };
-
-  const handleAccept = () => {
-    onAccept?.(editedContent);
   };
 
   const downloadAsTxt = () => {
@@ -69,6 +64,10 @@ export function PRDDisplay({ prdContent, onAccept, onSave }: PRDDisplayProps) {
       });
       
       if (!response.ok) {
+        if (response.status === 429) {
+          setRateLimited(true);
+          return;
+        }
         throw new Error(`PDF generation failed: ${response.statusText}`);
       }
 
@@ -84,34 +83,8 @@ export function PRDDisplay({ prdContent, onAccept, onSave }: PRDDisplayProps) {
       link.click();
       link.parentNode?.removeChild(link);
       window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Download failed:', error);
+    } catch {
       alert('Failed to generate PDF. Please try again.');
-    }
-  };
-
-  const generateDeploymentPlan = async () => {
-    try {
-      setIsGeneratingPlan(true);
-      const response = await fetch('/api/generate-deployment-plan', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ prdContent: editedContent }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to generate deployment plan');
-      }
-
-      const data = await response.json();
-      setDeploymentPlan(data.deploymentPlan);
-    } catch (error) {
-      console.error('Failed to generate deployment plan:', error);
-      alert('Failed to generate deployment plan. Please try again.');
-    } finally {
-      setIsGeneratingPlan(false);
     }
   };
 
@@ -126,7 +99,7 @@ export function PRDDisplay({ prdContent, onAccept, onSave }: PRDDisplayProps) {
               className="min-h-[400px] font-mono text-sm"
             />
             <div className="flex gap-2">
-              <Button onClick={handleSave} variant="default">
+              <Button onClick={handleSave} variant="default" className="cursor-pointer hover:opacity-90">
                 <Check className="mr-2 h-4 w-4" />
                 Save Changes
               </Button>
@@ -136,6 +109,7 @@ export function PRDDisplay({ prdContent, onAccept, onSave }: PRDDisplayProps) {
                   setIsEditing(false);
                 }}
                 variant="outline"
+                className="cursor-pointer hover:opacity-90"
               >
                 <X className="mr-2 h-4 w-4" />
                 Cancel
@@ -150,66 +124,54 @@ export function PRDDisplay({ prdContent, onAccept, onSave }: PRDDisplayProps) {
               </pre>
             </ScrollArea>
             
-            <div className="flex flex-wrap gap-2">
-              <Button onClick={() => setIsEditing(true)} variant="outline">
+            <div className="flex flex-wrap items-center justify-between w-full gap-2">
+              <Button
+                onClick={() => setIsEditing(true)}
+                variant="outline"
+                className="cursor-pointer hover:opacity-90"
+              >
                 <Edit className="mr-2 h-4 w-4" />
                 Edit
               </Button>
-              <Button onClick={handleAccept} variant="default">
-                <Check className="mr-2 h-4 w-4" />
-                Accept
-              </Button>
-              
-              <div className="flex gap-2">
-                <Button onClick={downloadAsTxt} variant="secondary" size="sm">
-                  <FileText className="mr-2 h-4 w-4" />
-                  TXT
-                </Button>
-                <Button onClick={downloadAsMarkdown} variant="secondary" size="sm">
-                  <FileType className="mr-2 h-4 w-4" />
-                  MD
-                </Button>
-                <Button onClick={downloadAsPdf} variant="secondary" size="sm">
-                  <FileType className="mr-2 h-4 w-4" />
-                  PDF
-                </Button>
-              </div>
-              
-              <Button 
-                onClick={generateDeploymentPlan}
-                disabled={isGeneratingPlan}
-                variant="default"
-              >
-                <Rocket className="mr-2 h-4 w-4" />
-                {isGeneratingPlan ? 'Generating...' : 'Generate Plan'}
-              </Button>
-            </div>
-
-            {deploymentPlan && (
-              <Card className="mt-6">
-                <CardHeader>
-                  <CardTitle className="text-xl">Deployment Plan</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ScrollArea className="h-[300px] w-full rounded-md border p-4">
-                    <pre className="whitespace-pre-wrap font-mono text-sm">
-                      {deploymentPlan}
-                    </pre>
-                  </ScrollArea>
-                  <Button 
-                    onClick={() => {/* existing download logic */}}
-                    className="mt-4"
-                    variant="outline"
+              <div className="relative pt-5">
+                <span className="absolute left-0 -top-1 text-xs text-muted-foreground">
+                  download as
+                </span>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={downloadAsTxt}
+                    variant="secondary"
+                    size="sm"
+                    className="cursor-pointer hover:opacity-80 transition-opacity"
                   >
-                    <Download className="mr-2 h-4 w-4" />
-                    Download Plan
+                    <FileText className="mr-2 h-4 w-4" />
+                    TXT
                   </Button>
-                </CardContent>
-              </Card>
-            )}
+                  <Button
+                    onClick={downloadAsMarkdown}
+                    variant="secondary"
+                    size="sm"
+                    className="cursor-pointer hover:opacity-80 transition-opacity"
+                  >
+                    <FileType className="mr-2 h-4 w-4" />
+                    MD
+                  </Button>
+                  <Button
+                    onClick={downloadAsPdf}
+                    variant="secondary"
+                    size="sm"
+                    className="cursor-pointer hover:opacity-80 transition-opacity"
+                  >
+                    <FileType className="mr-2 h-4 w-4" />
+                    PDF
+                  </Button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </CardContent>
+      <RateLimitDialog open={rateLimited} onOpenChange={setRateLimited} />
     </Card>
   );
 }
