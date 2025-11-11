@@ -46,7 +46,7 @@ export default function HomePage() {
         </DropdownMenu>
       </div>
 
-      <main className="container max-w-6xl mx-auto py-8 px-4 space-y-8 min-h-full">
+      <main className="container max-w-5xl mx-auto py-6 px-4 space-y-6 min-h-full">
         <div className="text-center space-y-2 pb-4">
           <h1 className="text-6xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
             DraftWise
