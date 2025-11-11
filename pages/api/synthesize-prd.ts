@@ -1,71 +1,34 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import { AgentName } from "@/lib/agents";
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-
-type Turn = {
-  name: AgentName;
-  message: string;
-};
+import { generateText } from "ai";
+import { google } from "@ai-sdk/google";
+import { rateLimit } from "@/lib/security";
+import { MAX_PRD_CHARS, withConcurrency, withTimeout } from "@/lib/gates";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const { prd, debate }: { prd: string; debate: Turn[] } = req.body;
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  if (!rateLimit(req, res, { windowMs: 60_000, max: 10 })) return;
 
-  if (!prd || !debate?.length) {
-    return res.status(400).json({ error: "Missing PRD or debate history" });
+  const { prd, debate } = req.body as { prd: string; debate: Array<{ name: string; message: string; round?: number }> };
+  if (!prd || !debate?.length) return res.status(400).json({ error: 'Missing PRD or debate history' });
+  if (typeof prd !== 'string' || prd.length > MAX_PRD_CHARS) return res.status(413).json({ error: 'PRD too large' });
+
+  // AI SDK summarization
+  const debateTranscript = debate.map(d => `${d.name}: ${d.message}`).join('\n');
+  const prompt = `Improve PRD in plain text (no markdown). Structure with: Project Name, Overview, Features and Requirements, Implementation. Incorporate debate feedback.\nOriginal PRD:\n${prd}\nDebate:\n${debateTranscript}`;
+  try {
+    const geminiModel: any = google('gemini-2.0-flash-lite');
+    // @ts-ignore suppress model type mismatch
+    const { text } = await withConcurrency('llm-synth', 2, () => withTimeout(
+      generateText({ model: geminiModel, prompt, temperature: 0.2 }),
+      25000
+    ));
+    const improvedPrd = text.trim();
+    res.status(200).json({ improvedPrd });
+  } catch {
+    res.status(500).json({ error: 'Synthesis failed' });
   }
-
-  const debateTranscript = debate.map(
-    (turn) => `${turn.name}: ${turn.message}`
-  ).join("\n");
-
-  const prompt = `
-As a product manager, synthesize a comprehensive improved PRD incorporating expert feedback.
-
-Original PRD:
-${prd}
-
-Expert Feedback:
-${debateTranscript}
-
-Write in plain text, no markdown or special formatting, generate an improved PRD with this structure:
-
-[Project Name]
-
-1. Overview
-- Product vision and goals
-- Target audience and user personas
-- Market positioning and value proposition
-- Success metrics and KPIs
-
-2. Features and Requirements
-- Core functionality and capabilities
-- Technical specifications and architecture
-- User experience and interface requirements
-- Performance and scalability considerations
-- Security and compliance needs
-
-3. Implementation
-- Development priorities
-- Technical constraints
-- Risk mitigation
-- Integration requirements
-
-Ensure the PRD is detailed yet concise, incorporating key points from the expert debate.`;
-
-  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-thinking-exp" });
-  
-  const result = await model.generateContent({
-    contents: [{ role: "user", parts: [{ text: prompt }] }],
-    generationConfig: {
-      maxOutputTokens: 1500,
-      temperature: 0.3,  // Lower temperature for more focused output
-      topP: 0.7,        // More focused token selection
-      topK: 20          // More concentrated sampling
-    }
-  });
-
-  const improvedPrd = result.response.text().trim();
-  res.status(200).json({ improvedPrd });
 }
+
+export const config = {
+  api: { bodyParser: { sizeLimit: '200kb' } }
+};

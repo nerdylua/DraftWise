@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { fetchAgents } from "@/lib/api";
+import { RateLimitDialog } from "@/components/RateLimitDialog";
 import { toast } from "sonner";
 import { AgentName } from "@/lib/agents";
 import { FileText, Loader2 } from "lucide-react";
@@ -20,6 +21,7 @@ export function PRDInput({ onAgentsSelected, setPRD }: Props) {
   const [prdText, setPrdText] = useState("");
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [rateLimited, setRateLimited] = useState(false);
 
   const handleSubmit = async () => {
     if (!prdText.trim()) {
@@ -35,14 +37,23 @@ export function PRDInput({ onAgentsSelected, setPRD }: Props) {
         setProgress((prev) => Math.min(prev + 10, 90));
       }, 300);
 
-      const agents = await fetchAgents(prdText);
-      clearInterval(interval);
-      setProgress(100);
-      
-      onAgentsSelected(agents);    
-      setPRD(prdText);
-      toast.success("Agents selected successfully!");
-    } catch (error) {
+      try {
+        const agents = await fetchAgents(prdText);
+        clearInterval(interval);
+        setProgress(100);
+        onAgentsSelected(agents);    
+        setPRD(prdText);
+        toast.success("Agents selected successfully!");
+      } catch (e: unknown) {
+        clearInterval(interval);
+        if (e instanceof Error && e.message === 'RATE_LIMIT') {
+          setRateLimited(true);
+          toast.error('Rate limit exceeded');
+        } else {
+          toast.error("Failed to analyze PRD. Please try again.");
+        }
+      }
+    } catch {
       toast.error("Failed to analyze PRD. Please try again.");
     } finally {
       setLoading(false);
@@ -81,7 +92,7 @@ export function PRDInput({ onAgentsSelected, setPRD }: Props) {
           <Button 
             onClick={handleSubmit} 
             disabled={loading || !prdText.trim()}
-            className="w-full"
+            className="w-full cursor-pointer hover:opacity-80 transition-opacity"
             size="lg"
           >
             {loading ? (
@@ -108,6 +119,7 @@ export function PRDInput({ onAgentsSelected, setPRD }: Props) {
           )}
         </div>
       </CardContent>
+      <RateLimitDialog open={rateLimited} onOpenChange={setRateLimited} />
     </Card>
   );
 }
