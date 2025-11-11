@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { agentProfiles, AgentName } from "@/lib/agents";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent} from "@/components/ui/card";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { PRDDisplay } from "@/components/PRDDisplay";
@@ -133,7 +133,8 @@ export function DebatePanel({ prd, agents, active = true }: Props) {
       cancelled = true;
       startedRef.current = false;
     };
-  }, [agents, prd, active]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active]);
 
   const synthesizeFinalPRD = async () => {
     setGeneratingFinal(true);
@@ -170,17 +171,12 @@ export function DebatePanel({ prd, agents, active = true }: Props) {
     }
   };
 
-  const handleAcceptPRD = async (content: string) => {
-    await handleSavePRD(content);
-    toast.success("PRD accepted and saved!");
-  };
-
   return (
-    <Card className="border shadow-md">
-      <CardHeader>
-        <CardTitle className="text-2xl font-semibold">Expert Discussion</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-6">
+    <div className="bg-card border rounded-lg shadow-sm">
+      <div className="p-6 border-b">
+        <h3 className="text-2xl font-semibold">Expert Discussion</h3>
+      </div>
+      <div className="p-6 space-y-6">
         <ScrollArea className="h-[500px] pr-4">
           <div className="space-y-4">
             {debate.map((turn, index) => {
@@ -231,7 +227,7 @@ export function DebatePanel({ prd, agents, active = true }: Props) {
               className="w-full cursor-pointer hover:opacity-80 transition-opacity"
               variant="default"
               size="lg"
-              disabled={generatingFinal || debate.length === 0}
+              disabled={generatingFinal}
             >
               {generatingFinal ? "Generating Final PRD..." : "Synthesize Final PRD"}
             </Button>
@@ -251,20 +247,21 @@ export function DebatePanel({ prd, agents, active = true }: Props) {
         )}
 
         {finalPRD && (
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle>Improved PRD</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <PRDDisplay 
-                prdContent={finalPRD}
-                onSave={handleSavePRD}
-              />
-            </CardContent>
-          </Card>
+          <div className="mt-6 pt-6 border-t space-y-4">
+            <div>
+              <h3 className="text-xl font-semibold mb-1">Improved PRD</h3>
+              <p className="text-sm text-muted-foreground">
+                Synthesized from expert feedback and discussion
+              </p>
+            </div>
+            <PRDDisplay 
+              prdContent={finalPRD}
+              onSave={handleSavePRD}
+            />
+          </div>
         )}
-      </CardContent>
+      </div>
       <RateLimitDialog open={rateLimited} onOpenChange={setRateLimited} />
-    </Card>
+    </div>
   );
 }
