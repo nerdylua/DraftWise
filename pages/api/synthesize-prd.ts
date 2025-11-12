@@ -2,7 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { generateText } from "ai";
 import { google } from "@ai-sdk/google";
 import { rateLimit } from "@/lib/security";
-import { MAX_PRD_CHARS, withConcurrency, withTimeout } from "@/lib/gates";
+import { MAX_PRD_CHARS, withTimeout } from "@/lib/gates";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -16,12 +16,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const debateTranscript = debate.map(d => `${d.name}: ${d.message}`).join('\n');
   const prompt = `Improve PRD in plain text (no markdown). Structure with: Project Name, Overview, Features and Requirements, Implementation. Incorporate debate feedback.\nOriginal PRD:\n${prd}\nDebate:\n${debateTranscript}`;
   try {
-    const geminiModel: any = google('gemini-2.0-flash-lite');
+    const geminiModel: any = google('gemini-2.0-flash');
     // @ts-ignore suppress model type mismatch
-    const { text } = await withConcurrency('llm-synth', 2, () => withTimeout(
-      generateText({ model: geminiModel, prompt, temperature: 0.2 }),
+    const { text } = await withTimeout(
+      generateText({ model: geminiModel, prompt, temperature: 0.2 } as any),
       25000
-    ));
+    );
     const improvedPrd = text.trim();
     res.status(200).json({ improvedPrd });
   } catch {

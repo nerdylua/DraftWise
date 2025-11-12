@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { rateLimit } from "@/lib/security";
-import { MAX_PRD_CHARS, withConcurrency, withTimeout } from "@/lib/gates";
+import { MAX_PRD_CHARS, withTimeout } from "@/lib/gates";
 import { generateText } from "ai";
 import { google } from "@ai-sdk/google";
 
@@ -29,12 +29,12 @@ Respond ONLY with valid JSON. Example:
 `;
 
   try {
-    const geminiModel: any = google('gemini-2.0-flash-lite');
+    const geminiModel: any = google('gemini-2.0-flash');
     // @ts-ignore suppress model type mismatch due to mixed internal versions
-    const { text } = await withConcurrency('llm-role', 3, () => withTimeout(
-      generateText({ model: geminiModel, prompt, temperature: 0.2 }),
+    const { text } = await withTimeout(
+      generateText({ model: geminiModel, prompt, temperature: 0.2 } as any),
       20000
-    ));
+    );
 
     const cleanText = text.replace(/```json|```/g, "").trim();
     const parsed = JSON.parse(cleanText);

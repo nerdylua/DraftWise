@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import puppeteer from 'puppeteer';
 import { rateLimit } from "@/lib/security";
-import { MAX_PRD_CHARS, withConcurrency, withTimeout } from "@/lib/gates";
+import { MAX_PRD_CHARS, withTimeout } from "@/lib/gates";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -35,13 +35,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     .replace(/'/g, '&#39;');
 
   try {
-    const browser = await withConcurrency('pdf-gen', 1, () => withTimeout(
+    const browser = await withTimeout(
       puppeteer.launch({
         headless: true,
         args: ['--no-sandbox', '--disable-setuid-sandbox']
       }),
       20000
-    ));
+    );
 
     const page = await browser.newPage();
 
