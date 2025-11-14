@@ -1,7 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import puppeteer from 'puppeteer';
-import { rateLimit } from "@/lib/security";
-import { MAX_PRD_CHARS, withTimeout } from "@/lib/gates";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -14,16 +12,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(415).json({ error: 'Unsupported Media Type' });
   }
 
-  // Conservative free-tier friendly rate limit
-  if (!rateLimit(req, res, { windowMs: 60_000, max: 10 })) return;
-
   const { prdContent } = req.body as { prdContent?: string };
 
   if (typeof prdContent !== 'string' || prdContent.trim().length === 0) {
     return res.status(400).json({ error: 'Missing PRD content' });
-  }
-  if (prdContent.length > MAX_PRD_CHARS) {
-    return res.status(413).json({ error: 'PRD too large' });
   }
 
   // Escape HTML to prevent injection in the generated document
@@ -35,13 +27,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     .replace(/'/g, '&#39;');
 
   try {
-    const browser = await withTimeout(
-      puppeteer.launch({
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-      }),
-      20000
-    );
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
 
     const page = await browser.newPage();
 
@@ -61,7 +50,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       })
       .join('\n');
 
-    await withTimeout(page.setContent(`
+    await page.setContent(`
       <!DOCTYPE html>
       <html>
         <head>
@@ -85,19 +74,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           <div class="content">${formattedContent}</div>
         </body>
       </html>
-    `), 15000);
+    `);
 
-    const pdf = await withTimeout(page.pdf({
+    const pdf = await page.pdf({
       format: 'A4',
       margin: { top: '40px', right: '40px', bottom: '40px', left: '40px' },
       printBackground: true
-    }), 20000);
+    });
 
     await browser.close();
 
     res.writeHead(200, {
       'Content-Type': 'application/pdf',
-      'Content-Length': Buffer.from(pdf).length,
+      'Content-Length': pdf.length,
       'Content-Disposition': 'attachment; filename="Final-prd.pdf"',
       'X-Content-Type-Options': 'nosniff'
     });
