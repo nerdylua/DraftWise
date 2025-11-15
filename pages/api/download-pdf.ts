@@ -1,5 +1,59 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import puppeteer from 'puppeteer';
+import fs from 'node:fs';
+import chromium from '@sparticuz/chromium';
+import puppeteer from 'puppeteer-core';
+import type { Browser } from 'puppeteer-core';
+
+const isServerless = Boolean(process.env.AWS_REGION || process.env.VERCEL);
+
+const localChromeCandidates = [
+  process.env.CHROME_EXECUTABLE_PATH,
+  process.env.PUPPETEER_EXECUTABLE_PATH,
+  'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+  'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+  '/usr/bin/google-chrome',
+  '/usr/bin/chromium-browser',
+  '/usr/bin/chromium',
+].filter(Boolean) as string[];
+
+const resolveLocalExecutable = () => {
+  for (const candidate of localChromeCandidates) {
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+  return undefined;
+};
+
+async function launchBrowser(): Promise<Browser> {
+  if (isServerless) {
+    const executablePath = await chromium.executablePath();
+
+    if (!executablePath) {
+      throw new Error('Chromium executable path not found in serverless runtime.');
+    }
+
+    return puppeteer.launch({
+      args: puppeteer.defaultArgs({ args: chromium.args, headless: 'shell' }),
+      executablePath,
+      headless: 'shell',
+    });
+  }
+
+  const executablePath = resolveLocalExecutable();
+
+  if (!executablePath) {
+    throw new Error(
+      'Unable to locate a local Chrome/Chromium executable. Set CHROME_EXECUTABLE_PATH.'
+    );
+  }
+
+  return puppeteer.launch({
+    executablePath,
+    headless: true,
+  });
+}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -26,11 +80,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 
+  let browser: Browser | null = null;
+
   try {
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
+    browser = await launchBrowser();
 
     const page = await browser.newPage();
 
@@ -82,8 +135,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       printBackground: true
     });
 
-    await browser.close();
-
     res.writeHead(200, {
       'Content-Type': 'application/pdf',
       'Content-Length': pdf.length,
@@ -91,8 +142,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       'X-Content-Type-Options': 'nosniff'
     });
     res.end(pdf);
-  } catch {
+  } catch (error) {
+    console.error('[download-pdf] Failed to generate PDF', error);
     res.status(500).json({ error: 'Failed to generate PDF' });
+  } finally {
+    if (browser) {
+      try {
+        await browser.close();
+      } catch (closeError) {
+        console.warn('[download-pdf] Failed to close browser', closeError);
+      }
+    }
   }
 }
 
@@ -100,4 +160,5 @@ export const config = {
   api: {
     bodyParser: { sizeLimit: '200kb' },
   },
+  runtime: 'nodejs',
 };

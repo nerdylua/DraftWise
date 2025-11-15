@@ -6,7 +6,7 @@ import { generateText, streamText } from "ai";
 import { google } from "@ai-sdk/google";
 
 const MAX_TOTAL_TURNS = 24;
-const MAX_ROUNDS = 3;
+const MAX_ROUNDS = 2;
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
