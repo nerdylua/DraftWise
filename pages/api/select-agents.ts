@@ -29,7 +29,7 @@ Respond ONLY with valid JSON. Example:
 `;
 
   try {
-    const geminiModel: any = google('gemini-2.0-flash');
+    const geminiModel: any = google('gemini-2.5-flash-lite');
     // @ts-ignore suppress model type mismatch due to mixed internal versions
     const { text } = await withTimeout(
       generateText({ model: geminiModel, prompt, temperature: 0.2 } as any),

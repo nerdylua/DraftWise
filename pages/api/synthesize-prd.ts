@@ -16,7 +16,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const debateTranscript = debate.map(d => `${d.name}: ${d.message}`).join('\n');
   const prompt = `Improve PRD in plain text (no markdown). Structure with: Project Name, Overview, Features and Requirements, Implementation. Incorporate debate feedback.\nOriginal PRD:\n${prd}\nDebate:\n${debateTranscript}`;
   try {
-    const geminiModel: any = google('gemini-2.0-flash');
+    const geminiModel: any = google('gemini-2.5-flash-lite');
     // @ts-ignore suppress model type mismatch
     const { text } = await withTimeout(
       generateText({ model: geminiModel, prompt, temperature: 0.2 } as any),

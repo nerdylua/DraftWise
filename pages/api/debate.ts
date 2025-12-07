@@ -37,7 +37,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const flushEnd = () => { send('end', { ok: true }); res.end(); };
 
-  const geminiModel: any = google('gemini-2.0-flash'); // @ts-ignore type compat
+  const geminiModel: any = google('gemini-2.5-flash-lite'); // @ts-ignore type compat
   const turns: Array<{ name: AgentName; message: string }> = [];
   let round = 1;
   let stopped = false;
